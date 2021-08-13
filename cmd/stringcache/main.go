@@ -19,18 +19,18 @@ type StringCache struct {
 
 func (s *StringCache) Add(key, value string, t time.Time) {
 	s.m[key] = &Entry{
-		e:     s.em.NewEntry(key, t),
+		e:     s.em.NewNode(key, t),
 		value: value,
 	}
 }
 
 func (s *StringCache) Update(key, value string, t time.Time) {
 	s.m[key].value = value
-	s.em.Update(s.m[key].e, t)
+	s.em.UpdateNode(s.m[key].e, t)
 }
 
 func (s *StringCache) Expire(t time.Time) {
-	for _, key := range s.em.ExpireEntries(t) {
+	for _, key := range s.em.ExpireNodes(t) {
 		key, ok := key.(string)
 		if !ok {
 			log.Fatal("type inversion failed")

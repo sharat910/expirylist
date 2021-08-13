@@ -20,68 +20,68 @@ type Node struct {
 	next *Node
 }
 
-func (em *ExpiryList) NewEntry(key interface{}, t time.Time) *Node {
-	entry := &Node{key: key, t: t, prev: em.latest}
-	em.makeEntryLatest(entry)
-	return entry
+func (el *ExpiryList) NewNode(key interface{}, t time.Time) *Node {
+	node := &Node{key: key, t: t, prev: el.latest}
+	el.makeNodeLatest(node)
+	return node
 }
 
-func (em *ExpiryList) Update(e *Node, t time.Time) {
+func (el *ExpiryList) UpdateNode(e *Node, t time.Time) {
 	e.t = t
-	em.getEntryToTop(e)
+	el.getNodeToTop(e)
 }
 
-func (em *ExpiryList) ExpireEntries(now time.Time) (keys []interface{}) {
-	if em.oldest == nil {
+func (el *ExpiryList) ExpireNodes(now time.Time) (keys []interface{}) {
+	if el.oldest == nil {
 		// log.Println("Map is already empty! oldest pointer nil!")
 		return
 	}
-	for now.Sub(em.oldest.t) >= em.timeout {
-		entry := em.oldest
-		keys = append(keys, entry.key)
-		em.oldest = entry.next
-		if entry.next == nil {
-			em.latest = nil
+	for now.Sub(el.oldest.t) >= el.timeout {
+		node := el.oldest
+		keys = append(keys, node.key)
+		el.oldest = node.next
+		if node.next == nil {
+			el.latest = nil
 			return
 		}
-		entry.next.prev = nil
+		node.next.prev = nil
 	}
 	return
 }
 
-func (em *ExpiryList) getEntryToTop(entry *Node) {
-	if em.latest == entry {
-		// already top entry
+func (el *ExpiryList) getNodeToTop(node *Node) {
+	if el.latest == node {
+		// already top most node
 		return
 	}
 
-	if em.oldest != entry {
-		entry.next.prev = entry.prev
-		entry.prev.next = entry.next
+	if el.oldest != node {
+		node.next.prev = node.prev
+		node.prev.next = node.next
 
-		entry.prev = em.latest
-		entry.next = nil
-		em.latest.next = entry
-		em.latest = entry
+		node.prev = el.latest
+		node.next = nil
+		el.latest.next = node
+		el.latest = node
 	} else {
-		em.oldest = entry.next
-		entry.next.prev = nil
+		el.oldest = node.next
+		node.next.prev = nil
 
-		entry.prev = em.latest
-		entry.next = nil
-		em.latest.next = entry
-		em.latest = entry
+		node.prev = el.latest
+		node.next = nil
+		el.latest.next = node
+		el.latest = node
 	}
 }
 
-func (em *ExpiryList) makeEntryLatest(entry *Node) {
-	if em.oldest == nil {
-		em.oldest = entry
-		em.latest = entry
+func (el *ExpiryList) makeNodeLatest(node *Node) {
+	if el.oldest == nil {
+		el.oldest = node
+		el.latest = node
 	} else {
 		// next of latest points to this
-		em.latest.next = entry
+		el.latest.next = node
 		// latest always points to new value
-		em.latest = entry
+		el.latest = node
 	}
 }
