@@ -31,6 +31,24 @@ func (el *ExpiryList) UpdateNode(e *Node, t time.Time) {
 	el.getNodeToTop(e)
 }
 
+func (el *ExpiryList) DeleteNode(e *Node) {
+	if e.prev != nil {
+		e.prev.next = e.next
+	}
+
+	if e.next != nil {
+		e.next.prev = e.prev
+	}
+
+	if el.latest == e {
+		el.latest = e.prev
+	}
+
+	if el.oldest == e {
+		el.oldest = e.next
+	}
+}
+
 func (el *ExpiryList) ExpireNodes(now time.Time) (keys []interface{}) {
 	if el.oldest == nil {
 		// log.Println("Map is already empty! oldest pointer nil!")
@@ -75,7 +93,8 @@ func (el *ExpiryList) getNodeToTop(node *Node) {
 }
 
 func (el *ExpiryList) makeNodeLatest(node *Node) {
-	if el.oldest == nil {
+
+	if el.latest == nil {
 		el.oldest = node
 		el.latest = node
 	} else {
