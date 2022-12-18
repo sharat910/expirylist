@@ -32,6 +32,10 @@ func (el *ExpiryList) UpdateNode(e *Node, t time.Time) {
 }
 
 func (el *ExpiryList) DeleteNode(e *Node) {
+	if e == nil {
+		return // nothing to delete
+	}
+
 	if e.prev != nil {
 		e.prev.next = e.next
 	}
@@ -47,6 +51,10 @@ func (el *ExpiryList) DeleteNode(e *Node) {
 	if el.oldest == e {
 		el.oldest = e.next
 	}
+
+	// Explicitly set to nil to ease GC
+	e.next = nil
+	e.prev = nil
 }
 
 func (el *ExpiryList) ExpireNodes(now time.Time) (keys []interface{}) {
@@ -63,6 +71,9 @@ func (el *ExpiryList) ExpireNodes(now time.Time) (keys []interface{}) {
 			return
 		}
 		node.next.prev = nil
+		// Explicitly set to nil to ease GC
+		node.next = nil
+		node.prev = nil
 	}
 	return
 }
