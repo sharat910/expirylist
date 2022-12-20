@@ -20,98 +20,90 @@ type Node struct {
 	next *Node
 }
 
+// NewNode creates a new node with the given key and time and adds to list in sorted order
 func (el *ExpiryList) NewNode(key interface{}, t time.Time) *Node {
-	node := &Node{key: key, t: t, prev: el.latest}
-	el.makeNodeLatest(node)
+	node := &Node{key: key, t: t}
+	el.insertSortedFromLatest(node)
 	return node
 }
 
+// UpdateNode updates the time of the given node and re-inserts it in the list
 func (el *ExpiryList) UpdateNode(e *Node, t time.Time) {
 	e.t = t
-	el.getNodeToTop(e)
+	el.unlinkFromList(e)
+	el.insertSortedFromLatest(e)
 }
 
-func (el *ExpiryList) DeleteNode(e *Node) {
-	if e == nil {
-		return // nothing to delete
-	}
-
-	if e.prev != nil {
-		e.prev.next = e.next
-	}
-
-	if e.next != nil {
-		e.next.prev = e.prev
-	}
-
-	if el.latest == e {
-		el.latest = e.prev
-	}
-
-	if el.oldest == e {
-		el.oldest = e.next
-	}
-
-	// Explicitly set to nil to ease GC
-	e.next = nil
-	e.prev = nil
+// DeleteNode deletes the given node from the list
+func (el *ExpiryList) DeleteNode(node *Node) {
+	el.unlinkFromList(node)
 }
 
+// ExpireNodes returns all nodes that have expired and removes them from the list
 func (el *ExpiryList) ExpireNodes(now time.Time) (keys []interface{}) {
-	if el.oldest == nil {
-		// log.Println("Map is already empty! oldest pointer nil!")
-		return
-	}
-	for now.Sub(el.oldest.t) >= el.timeout {
-		node := el.oldest
-		keys = append(keys, node.key)
-		el.oldest = node.next
-		if node.next == nil {
-			el.latest = nil
-			return
-		}
-		node.next.prev = nil
-		// Explicitly set to nil to ease GC
-		node.next = nil
-		node.prev = nil
+	for el.oldest != nil && now.Sub(el.oldest.t) >= el.timeout {
+		keys = append(keys, el.oldest.key)
+		el.unlinkFromList(el.oldest)
 	}
 	return
 }
 
-func (el *ExpiryList) getNodeToTop(node *Node) {
-	if el.latest == node {
-		// already top most node
-		return
+// unlinkFromList removes the given node from the list
+func (el *ExpiryList) unlinkFromList(node *Node) {
+	if node == nil {
+		return // nothing to unlink
 	}
 
-	if el.oldest != node {
-		node.next.prev = node.prev
-		node.prev.next = node.next
+	if node == el.latest {
+		el.latest = node.prev
+	}
 
-		node.prev = el.latest
-		node.next = nil
-		el.latest.next = node
-		el.latest = node
-	} else {
+	if node == el.oldest {
 		el.oldest = node.next
-		node.next.prev = nil
-
-		node.prev = el.latest
-		node.next = nil
-		el.latest.next = node
-		el.latest = node
 	}
+
+	if node.prev != nil {
+		node.prev.next = node.next
+	}
+
+	if node.next != nil {
+		node.next.prev = node.prev
+	}
+
+	node.next = nil
+	node.prev = nil
 }
 
-func (el *ExpiryList) makeNodeLatest(node *Node) {
-
+// insertSortedFromLatest inserts the given node into the list in sorted order from the latest node
+func (el *ExpiryList) insertSortedFromLatest(node *Node) {
 	if el.latest == nil {
 		el.oldest = node
 		el.latest = node
-	} else {
-		// next of latest points to this
+		return
+	}
+
+	if node.t.After(el.latest.t) || node.t.Equal(el.latest.t) {
+		node.prev = el.latest
 		el.latest.next = node
-		// latest always points to new value
 		el.latest = node
+		return
+	}
+
+	if node.t.Before(el.oldest.t) {
+		node.next = el.oldest
+		el.oldest.prev = node
+		el.oldest = node
+		return
+	}
+
+	// find the node after which we need to insert
+	for n := el.latest; n != nil; n = n.prev {
+		if node.t.After(n.t) {
+			node.next = n.next
+			node.prev = n
+			n.next.prev = node
+			n.next = node
+			return
+		}
 	}
 }
